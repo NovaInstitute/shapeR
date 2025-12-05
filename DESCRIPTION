@@ -1,0 +1,11 @@
+Package: shapeR
+Type: Package
+Title: SHACL Utilities for R
+Version: 0.0.0.9000
+Authors@R:
+    person(given = "Christiaan", family = "Pauw", role = c("aut", "cre"), email = "maintainer@example.com")
+Description: Helpers for shortening IRIs, working with RDF lists, and visualising SHACL shapes.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)

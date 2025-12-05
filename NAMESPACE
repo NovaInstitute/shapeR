@@ -1,0 +1,3 @@
+# Placeholder NAMESPACE. Run roxygen2 to regenerate.
+export(first_or_na)
+export(shorten_iri)
