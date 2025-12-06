@@ -1,0 +1,26 @@
+# R history and session data
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Renviron
+.Rprofile
+
+# RStudio/R project files
+.Rproj.user/
+*.Rproj
+
+# Package build artifacts
+.Rcheck/
+inst/doc/
+
+# Dependency managers
+packrat/
+renv/library/
+renv/python/
+renv/staging/
+
+# Miscellaneous
+.DS_Store
+.vscode/
+.idea/
