@@ -19,6 +19,9 @@
 #' @param file Either a path to a SHACL file (Turtle, RDF/XML, JSON-LD, etc.) or
 #'   an object of class \code{sh_shape_graph} produced by \code{read_shacl()}.
 #' @param layout Layout name passed to \code{ggraph} (e.g. "sugiyama", "fr").
+#'   Ignored when \code{engine = "visNetwork"}.
+#' @param engine Visualisation engine to use. Defaults to \code{"ggraph"} for
+#'   static plots; set to \code{"visNetwork"} for an interactive widget.
 #'
 #' @return A \code{tidygraph::tbl_graph} object, returned invisibly.
 #'   The diagram is plotted as a side effect.
@@ -49,7 +52,7 @@
 #' @importFrom grid arrow unit
 #' @importFrom stats na.omit
 #' @export
-visualiseSHACL <- function(file, layout = "sugiyama") {
+visualiseSHACL <- function(file, layout = "sugiyama", engine = c("ggraph", "visNetwork")) {
 
   if (is.character(file) && length(file) == 1L) {
     shape_graph <- read_shacl(check_scalar_character(file, "file"))
@@ -60,6 +63,7 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
   }
 
   layout <- check_scalar_character(layout, "layout")
+  engine <- match.arg(engine, c("ggraph", "visNetwork"))
 
   prefixes <- shape_graph$prefixes %||% character()
   base_iri <- shape_graph$base_iri %||% NULL
@@ -288,13 +292,40 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
       to_label   = unname(nodes$node[to])
     )
 
-  p <- ggraph::ggraph(graph, layout = layout) +
-    ggraph::geom_edge_link(
-      arrow = grid::arrow(length = grid::unit(3, "mm"))
-    ) +
-    ggraph::geom_node_label(ggplot2::aes(label = label)) +
-    ggplot2::theme_void()
+  if (engine == "visNetwork") {
+    if (!requireNamespace("visNetwork", quietly = TRUE)) {
+      stop("The `visNetwork` package is required for `engine = 'visNetwork'`.", call. = FALSE)
+    }
 
-  print(p)
+    nodes_df <- nodes |>
+      dplyr::transmute(
+        id    = node,
+        label = label,
+        title = gsub("\n", "<br>", label)
+      )
+
+    edges_df <- edges |>
+      dplyr::mutate(
+        label  = relation,
+        arrows = "to"
+      )
+
+    widget <- visNetwork::visNetwork(nodes_df, edges_df) |>
+      visNetwork::visEdges(smooth = FALSE) |>
+      visNetwork::visOptions(highlightNearest = TRUE, nodesIdSelection = TRUE)
+
+    print(widget)
+
+  } else {
+    p <- ggraph::ggraph(graph, layout = layout) +
+      ggraph::geom_edge_link(
+        arrow = grid::arrow(length = grid::unit(3, "mm"))
+      ) +
+      ggraph::geom_node_label(ggplot2::aes(label = label)) +
+      ggplot2::theme_void()
+
+    print(p)
+  }
+
   invisible(graph)
 }
