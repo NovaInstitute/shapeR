@@ -16,7 +16,8 @@
 #' Shape nodes are labelled with their shape ID and, if present,
 #' \code{sh:targetClass}.
 #'
-#' @param file Path to the SHACL file (Turtle, RDF/XML, JSON-LD, etc.).
+#' @param file Either a path to a SHACL file (Turtle, RDF/XML, JSON-LD, etc.) or
+#'   an object of class \code{sh_shape_graph} produced by \code{read_shacl()}.
 #' @param layout Layout name passed to \code{ggraph} (e.g. "sugiyama", "fr").
 #'
 #' @return A \code{tidygraph::tbl_graph} object, returned invisibly.
@@ -27,10 +28,7 @@
 #' visualiseSHACL("inst/extdata/shapes.ttl")
 #' }
 #'
-#' @importFrom rdflib rdf_parse rdf_query
-#' @importFrom dplyr select filter mutate transmute group_by summarise
-#' @importFrom dplyr left_join distinct if_else bind_rows rowwise ungroup
-#' @importFrom stringr str_detect
+#' @importFrom dplyr bind_rows distinct
 #' @importFrom tibble tibble
 #' @importFrom tidygraph tbl_graph
 #' @importFrom ggraph ggraph geom_edge_link geom_node_label
@@ -40,141 +38,123 @@
 #' @export
 visualiseSHACL <- function(file, layout = "sugiyama") {
 
-  # ---- 1. Parse SHACL RDF ------------------------------------------------
-  rdf <- rdflib::rdf_parse(file)
-
-  triples <- rdflib::rdf_query(
-    rdf,
-    "SELECT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object }"
-  ) |>
-    dplyr::select(subject, predicate, object)
-
-  # ---- 2. sh:property and sh:node links ----------------------------------
-  prop_triples <- triples |>
-    dplyr::filter(stringr::str_detect(predicate, "shacl#property"))
-
-  if (nrow(prop_triples) == 0L) {
-    stop("No sh:property triples found — is this a SHACL shapes graph?", call. = FALSE)
+  if (is.character(file) && length(file) == 1L) {
+    shape_graph <- read_shacl(file)
+  } else if (inherits(file, "sh_shape_graph")) {
+    shape_graph <- file
+  } else {
+    stop("`file` must be a file path or a `sh_shape_graph` object.", call. = FALSE)
   }
 
-  node_triples <- triples |>
-    dplyr::filter(stringr::str_detect(predicate, "shacl#node"))
+  prefixes <- shape_graph$prefixes %||% character()
 
-  # Shapes: anything that has sh:property OR is the target of sh:node
-  shape_ids     <- unique(c(prop_triples$subject, node_triples$object))
-  prop_node_ids <- unique(prop_triples$object)
+  node_shapes <- shape_graph$shapes
 
-  # ---- 3. Extract details about property shapes --------------------------
-  prop_details <- triples |>
-    dplyr::filter(subject %in% prop_node_ids) |>
-    dplyr::mutate(
-      pred_role = dplyr::case_when(
-        stringr::str_detect(predicate, "shacl#path")     ~ "path",
-        stringr::str_detect(predicate, "shacl#datatype") ~ "datatype",
-        stringr::str_detect(predicate, "shacl#minCount") ~ "minCount",
-        stringr::str_detect(predicate, "shacl#maxCount") ~ "maxCount",
-        stringr::str_detect(predicate, "shacl#node")     ~ "node",
-        stringr::str_detect(predicate, "shacl#class")    ~ "class",
-        stringr::str_detect(predicate, "shacl#in")       ~ "in",
-        stringr::str_detect(predicate, "shacl#or")       ~ "or",
-        TRUE                                             ~ NA_character_
-      )
-    ) |>
-    dplyr::filter(!is.na(pred_role)) |>
-    dplyr::group_by(subject) |>
-    dplyr::summarise(
-      path     = first_or_na(object[pred_role == "path"]),
-      datatype = first_or_na(object[pred_role == "datatype"]),
-      minCount = first_or_na(object[pred_role == "minCount"]),
-      maxCount = first_or_na(object[pred_role == "maxCount"]),
-      node     = first_or_na(object[pred_role == "node"]),
-      class    = first_or_na(object[pred_role == "class"]),
-      in_head  = first_or_na(object[pred_role == "in"]),
-      or_head  = first_or_na(object[pred_role == "or"]),
-      .groups  = "drop"
+  if (length(node_shapes) == 0L) {
+    stop("No shapes found in the supplied shape graph.", call. = FALSE)
+  }
+
+  get_param <- function(constraints, param_name) {
+    for (c in constraints) {
+      if (param_name %in% names(c$params)) {
+        return(c$params[[param_name]])
+      }
+    }
+    NULL
+  }
+
+  prop_rows <- list()
+  edge_rows <- list()
+  shape_rows <- list()
+
+  for (shape in node_shapes) {
+    target <- shape$targets$targetClass
+    label <- if (length(target)) {
+      paste0(shorten_iri(shape$id, prefixes), " \u2192 ", shorten_iri(target[[1L]], prefixes))
+    } else {
+      shorten_iri(shape$id, prefixes)
+    }
+
+    shape_rows[[length(shape_rows) + 1L]] <- tibble::tibble(
+      node  = shape$id,
+      label = label
     )
 
-  # ---- 4. Build property node labels -------------------------------------
-  prop_labels <- prop_details |>
-    dplyr::rowwise() |>
-    dplyr::mutate(
-      base = if (!is.na(path)) shorten_iri(path) else shorten_iri(subject),
-      card = if (!is.na(minCount) | !is.na(maxCount)) {
+    if (length(shape$properties) == 0L) {
+      next
+    }
+
+    for (prop in shape$properties) {
+      min_count <- get_param(prop$constraints, "minCount")
+      max_count <- get_param(prop$constraints, "maxCount")
+      datatype  <- get_param(prop$constraints, "datatype")
+      class_val <- get_param(prop$constraints, "class")
+      in_vals   <- get_param(prop$constraints, "in")
+      or_vals   <- prop$nested$or
+      node_val  <- prop$nested$node
+
+      prop_id <- prop$id %||% paste0(shape$id, "::", prop$path)
+
+      card <- if (!is.null(min_count) || !is.null(max_count)) {
         paste0(
           "[",
-          if (!is.na(minCount)) minCount else "0",
+          if (!is.null(min_count)) min_count else "0",
           "..",
-          if (!is.na(maxCount)) maxCount else "*",
+          if (!is.null(max_count)) max_count else "*",
           "]"
         )
       } else {
         NA_character_
-      },
-      dt        = if (!is.na(datatype)) shorten_iri(datatype) else NA_character_,
-      class_str = if (!is.na(class)) {
-        paste0("class: ", shorten_iri(class))
-      } else {
-        NA_character_
-      },
-      in_str = if (!is.na(in_head)) {
-        list_to_label(in_head, triples, "in")
-      } else {
-        NA_character_
-      },
-      or_str = if (!is.na(or_head)) {
-        list_to_label(or_head, triples, "or")
-      } else {
-        NA_character_
-      },
-      node_str = if (!is.na(node)) {
-        paste0("node: ", shorten_iri(node))
-      } else {
-        NA_character_
-      },
-      label = paste(
-        stats::na.omit(c(base, card, dt, class_str, in_str, or_str, node_str)),
-        collapse = "\n"
+      }
+
+      label_parts <- stats::na.omit(c(
+        shorten_iri(prop$path, prefixes),
+        card,
+        if (!is.null(datatype)) shorten_iri(datatype, prefixes) else NA_character_,
+        if (!is.null(class_val)) paste0("class: ", shorten_iri(class_val, prefixes)) else NA_character_,
+        if (!is.null(in_vals) && length(in_vals)) {
+          paste0("in: ", paste(shorten_iri(as.character(in_vals), prefixes), collapse = ", "))
+        } else {
+          NA_character_
+        },
+        if (!is.null(or_vals) && length(or_vals)) {
+          paste0("or: ", paste(shorten_iri(as.character(or_vals), prefixes), collapse = ", "))
+        } else {
+          NA_character_
+        },
+        if (!is.null(node_val)) paste0("node: ", shorten_iri(node_val, prefixes)) else NA_character_
+      ))
+
+      prop_rows[[length(prop_rows) + 1L]] <- tibble::tibble(
+        node  = prop_id,
+        label = paste(label_parts, collapse = "\n")
       )
-    ) |>
-    dplyr::ungroup() |>
-    dplyr::select(node = subject, label)
 
-  # ---- 5. Shape node labels via sh:targetClass ---------------------------
-  target_triples <- triples |>
-    dplyr::filter(
-      subject %in% shape_ids,
-      stringr::str_detect(predicate, "shacl#targetClass")
-    ) |>
-    dplyr::select(node = subject, target = object)
-
-  shape_labels <- tibble::tibble(node = shape_ids) |>
-    dplyr::left_join(target_triples, by = "node") |>
-    dplyr::mutate(
-      label = dplyr::if_else(
-        !is.na(target),
-        paste0(shorten_iri(node), " \u2192 ", shorten_iri(target)),
-        shorten_iri(node)
+      edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+        from = shape$id,
+        to   = prop_id
       )
-    ) |>
-    dplyr::select(node, label)
 
-  # ---- 6. Combine nodes and edges ----------------------------------------
-  nodes <- dplyr::bind_rows(shape_labels, prop_labels) |>
+      if (!is.null(node_val)) {
+        edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+          from = prop_id,
+          to   = node_val
+        )
+      }
+    }
+  }
+
+  nodes <- dplyr::bind_rows(c(shape_rows, prop_rows)) |>
     dplyr::distinct(node, .keep_all = TRUE)
 
-  # edges: shape -> propertyShape (sh:property)
-  edges_prop <- prop_triples |>
-    dplyr::transmute(from = subject, to = object)
-
-  # edges: propertyShape -> nested shape (sh:node)
-  edges_node <- node_triples |>
-    dplyr::transmute(from = subject, to = object)
-
-  edges <- dplyr::bind_rows(edges_prop, edges_node)
+  edges <- if (length(edge_rows)) {
+    dplyr::bind_rows(edge_rows)
+  } else {
+    tibble::tibble(from = character(), to = character())
+  }
 
   graph <- tidygraph::tbl_graph(nodes = nodes, edges = edges, directed = TRUE)
 
-  # ---- 7. Plot with ggraph ------------------------------------------------
   p <- ggraph::ggraph(graph, layout = layout) +
     ggraph::geom_edge_link(
       arrow = grid::arrow(length = grid::unit(3, "mm"))
