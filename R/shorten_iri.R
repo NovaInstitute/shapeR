@@ -10,16 +10,19 @@ shorten_iri <- function(iri, prefixes = character()) {
     return(iri)
   }
 
+  prefixes_clean <- strip_angle_brackets(unname(prefixes))
+
   vapply(
     iri,
     function(x) {
-      match_idx <- which(startsWith(x, unname(prefixes)))
+      cleaned <- strip_angle_brackets(x)
+      match_idx <- which(startsWith(cleaned, prefixes_clean))
       if (length(match_idx) == 0L) {
         return(x)
       }
 
       idx <- match_idx[1L]
-      paste0(names(prefixes)[idx], ":", substring(x, nchar(prefixes[idx]) + 1L))
+      paste0(names(prefixes)[idx], ":", substring(cleaned, nchar(prefixes_clean[idx]) + 1L))
     },
     character(1)
   )

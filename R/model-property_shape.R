@@ -27,6 +27,11 @@
 #' @param deactivated Logical flag indicating whether the shape is deactivated
 #'   (\code{sh:deactivated}).
 #' @param extras A list for additional fields not yet modelled explicitly.
+#' @param prefixes Optional named character vector of prefix mappings used to
+#'   normalise IRIs.
+#' @param base_iri Optional base IRI used when resolving relative identifiers.
+#' @param normalise Logical; if TRUE, CURIEs/relative IRIs are expanded using
+#'   \code{prefixes} and \code{base_iri} before being stored.
 #'
 #' @return An object of class \code{"sh_property_shape"}.
 #'
@@ -60,7 +65,10 @@ sh_property_shape <- function(id = NULL,
                               annotations = list(),
                               severity = NULL,
                               deactivated = FALSE,
-                              extras = list()) {
+                              extras = list(),
+                              prefixes = NULL,
+                              base_iri = NULL,
+                              normalise = FALSE) {
 
   # id: NULL or scalar character
   if (!is.null(id) &&
@@ -126,6 +134,8 @@ sh_property_shape <- function(id = NULL,
     stop("`extras` must be a list.", call. = FALSE)
   }
 
+  prefixes <- prefixes %||% character()
+
   out <- list(
     id          = id,
     path        = path,
@@ -141,6 +151,16 @@ sh_property_shape <- function(id = NULL,
     deactivated = deactivated,
     extras      = extras
   )
+
+  if (isTRUE(normalise)) {
+    out$id   <- if (!is.null(out$id)) normalise_iri(out$id, prefixes, base_iri) else NULL
+    out$path <- normalise_iri(out$path, prefixes, base_iri)
+
+    out$nested$node <- if (!is.null(out$nested$node)) normalise_iri(out$nested$node, prefixes, base_iri) else NULL
+    out$nested$or   <- normalise_iri(out$nested$or, prefixes, base_iri)
+    out$nested$and  <- normalise_iri(out$nested$and, prefixes, base_iri)
+    out$nested$xone <- normalise_iri(out$nested$xone, prefixes, base_iri)
+  }
 
   structure(out, class = c("sh_property_shape", "sh_shape", "list"))
 }

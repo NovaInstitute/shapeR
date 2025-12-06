@@ -27,6 +27,11 @@
 #' @param deactivated Logical flag indicating whether the shape is deactivated
 #'   (\code{sh:deactivated}).
 #' @param extras A list for additional fields not yet modelled explicitly.
+#' @param prefixes Optional named character vector of prefix mappings used to
+#'   normalise identifiers.
+#' @param base_iri Optional base IRI used when resolving relative identifiers.
+#' @param normalise Logical; if TRUE, CURIEs/relative IRIs are expanded using
+#'   \code{prefixes} and \code{base_iri} before being stored.
 #'
 #' @return An object of class \code{"sh_node_shape"}.
 #'
@@ -49,7 +54,10 @@ sh_node_shape <- function(id,
                           annotations = list(),
                           severity    = NULL,
                           deactivated = FALSE,
-                          extras      = list()) {
+                          extras      = list(),
+                          prefixes    = NULL,
+                          base_iri    = NULL,
+                          normalise   = FALSE) {
 
   # id: required scalar character
   if (!is.character(id) || length(id) != 1L || is.na(id)) {
@@ -124,6 +132,8 @@ sh_node_shape <- function(id,
     stop("`extras` must be a list.", call. = FALSE)
   }
 
+  prefixes <- prefixes %||% character()
+
   out <- list(
     id          = id,
     targets     = list(
@@ -139,6 +149,31 @@ sh_node_shape <- function(id,
     deactivated = deactivated,
     extras      = extras
   )
+
+  if (isTRUE(normalise)) {
+    out$id <- normalise_iri(out$id, prefixes, base_iri)
+
+    out$targets$targetClass      <- normalise_iri(out$targets$targetClass, prefixes, base_iri)
+    out$targets$targetNode       <- normalise_iri(out$targets$targetNode, prefixes, base_iri)
+    out$targets$targetSubjectsOf <- normalise_iri(out$targets$targetSubjectsOf, prefixes, base_iri)
+    out$targets$targetObjectsOf  <- normalise_iri(out$targets$targetObjectsOf, prefixes, base_iri)
+
+    if (length(out$properties)) {
+      out$properties <- lapply(
+        out$properties,
+        function(prop) {
+          if (!inherits(prop, "sh_property_shape")) return(prop)
+          prop$id   <- if (!is.null(prop$id)) normalise_iri(prop$id, prefixes, base_iri) else NULL
+          prop$path <- normalise_iri(prop$path, prefixes, base_iri)
+          prop$nested$node <- if (!is.null(prop$nested$node)) normalise_iri(prop$nested$node, prefixes, base_iri) else NULL
+          prop$nested$or   <- normalise_iri(prop$nested$or, prefixes, base_iri)
+          prop$nested$and  <- normalise_iri(prop$nested$and, prefixes, base_iri)
+          prop$nested$xone <- normalise_iri(prop$nested$xone, prefixes, base_iri)
+          prop
+        }
+      )
+    }
+  }
 
   structure(out, class = c("sh_node_shape", "sh_shape", "list"))
 }
