@@ -80,14 +80,7 @@ test_that("severity defaults and warnings affect conformance", {
 
 
 test_that("validate_shacl can read rdflib graphs", {
-  ttl <- """
-  @prefix ex: <http://example.com/> .
-  @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-  @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-  ex:alice rdf:type ex:Person ;
-           ex:age "23"^^xsd:integer .
-  """
+  ttl <- "@prefix ex: <http://example.com/> .\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\nex:alice rdf:type ex:Person ;\n         ex:age \"23\"^^xsd:integer ."
 
   rdf <- rdflib::rdf_parse(ttl, format = "turtle")
 
