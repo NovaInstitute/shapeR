@@ -115,3 +115,65 @@ test_that("validate_shacl can read rdflib graphs", {
   expect_true(nrow(report$results) >= 1)
   expect_false(report$conforms)
 })
+
+test_that("node and logical constraints on properties are enforced", {
+  friend_class <- sh_constraint(
+    component = "sh:ClassConstraintComponent",
+    params    = list(class = "ex:Friend"),
+    scope     = "node"
+  )
+
+  friend_shape <- sh_node_shape(
+    id          = "ex:FriendShape",
+    constraints = list(friend_class)
+  )
+
+  friend_node <- sh_constraint(
+    component = "sh:NodeConstraintComponent",
+    params    = list(node = "ex:FriendShape"),
+    scope     = "property"
+  )
+
+  adult_class <- sh_constraint(
+    component = "sh:ClassConstraintComponent",
+    params    = list(class = "ex:Adult"),
+    scope     = "node"
+  )
+
+  friend_or_adult <- sh_constraint(
+    component = "sh:OrConstraintComponent",
+    params    = list(or = c("ex:FriendShape", "ex:AdultShape")),
+    scope     = "property"
+  )
+
+  adult_shape <- sh_node_shape(
+    id          = "ex:AdultShape",
+    constraints = list(adult_class)
+  )
+
+  friend_prop <- sh_property_shape(
+    path        = "ex:friend",
+    constraints = list(friend_node, friend_or_adult)
+  )
+
+  base_shape <- sh_node_shape(
+    id         = "ex:BaseShape",
+    targets    = list(targetClass = "ex:Person"),
+    properties = list(friend_prop)
+  )
+
+  sg <- sh_shape_graph(shapes = list(friend_shape, adult_shape, base_shape))
+
+  data <- data.frame(
+    subject   = c("ex:alice",  "ex:alice",  "ex:bob",    "ex:charlie", "ex:charlie", "ex:dave"),
+    predicate = c("rdf:type",  "ex:friend", "rdf:type", "rdf:type",   "ex:friend", "rdf:type"),
+    object    = c("ex:Person", "ex:bob",    "ex:Friend", "ex:Person", "ex:dave",   "ex:Unknown"),
+    stringsAsFactors = FALSE
+  )
+
+  report <- validate_shacl(data, sg)
+
+  expect_false(report$conforms)
+  expect_true(any(grepl("does not satisfy shape", report$results$message)))
+  expect_true(any(grepl("does not satisfy any", report$results$message)))
+})

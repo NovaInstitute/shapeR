@@ -165,5 +165,3 @@ sh_property_shape <- function(id = NULL,
   structure(out, class = c("sh_property_shape", "sh_shape", "list"))
 }
 
-# small internal helper: "x %||% y"  (only if you don't have it already)
-`%||%` <- function(x, y) if (is.null(x)) y else x

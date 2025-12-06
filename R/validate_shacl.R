@@ -33,38 +33,8 @@ validate_shacl <- function(data, shapes) {
     focus_nodes <- resolve_focus_nodes(shape, triples)
     if (!length(focus_nodes)) next
 
-    shape_severity <- shape$severity %||% "sh:Violation"
-
-    # validate node-level constraints
-    for (constraint in shape$constraints) {
-      res <- validate_node_constraint(constraint, focus_nodes, triples,
-                                      shape_id = shape$id,
-                                      severity = shape_severity)
-      results <- c(results, res)
-    }
-
-    # validate property shapes belonging to the node shape
-    for (prop in shape$properties) {
-      if (isTRUE(prop$deactivated)) next
-
-      prop_severity <- prop$severity %||% shape$severity %||% "sh:Violation"
-
-      for (node in focus_nodes) {
-        idx <- triples$subject == node & triples$predicate == prop$path
-        values <- triples$object[idx]
-        dtypes <- triples$datatype[idx]
-
-        for (constraint in prop$constraints) {
-          res <- validate_property_constraint(constraint, values, dtypes,
-                                              focus_node = node,
-                                              path = prop$path,
-                                              shape_id = shape$id,
-                                              severity = prop_severity,
-                                              triples = triples)
-          results <- c(results, res)
-        }
-      }
-    }
+    res <- validate_shape_on_nodes(shape, focus_nodes, triples, shapes)
+    results <- c(results, res)
   }
 
   results_df <- as.data.frame(do.call(rbind, results), stringsAsFactors = FALSE)
@@ -88,6 +58,55 @@ validate_shacl <- function(data, shapes) {
 }
 
 # ---------- helpers ---------------------------------------------------------
+
+validate_shape_on_nodes <- function(shape, focus_nodes, triples, shapes,
+                                    visited = character()) {
+  if (!is.null(shape$id) && shape$id %in% visited) {
+    return(list())
+  }
+
+  visited <- c(visited, shape$id %||% character())
+  results <- list()
+
+  shape_severity <- shape$severity %||% "sh:Violation"
+
+  # node-level constraints
+  for (constraint in shape$constraints) {
+    res <- validate_node_constraint(constraint, focus_nodes, triples,
+                                    shape_id = shape$id,
+                                    severity = shape_severity,
+                                    shapes = shapes,
+                                    visited = visited)
+    results <- c(results, res)
+  }
+
+  # property shapes
+  for (prop in shape$properties) {
+    if (isTRUE(prop$deactivated)) next
+
+    prop_severity <- prop$severity %||% shape$severity %||% "sh:Violation"
+
+    for (node in focus_nodes) {
+      idx <- triples$subject == node & triples$predicate == prop$path
+      values <- triples$object[idx]
+      dtypes <- triples$datatype[idx]
+
+      for (constraint in prop$constraints) {
+        res <- validate_property_constraint(constraint, values, dtypes,
+                                            focus_node = node,
+                                            path = prop$path,
+                                            shape_id = shape$id,
+                                            severity = prop_severity,
+                                            triples = triples,
+                                            shapes = shapes,
+                                            visited = visited)
+        results <- c(results, res)
+      }
+    }
+  }
+
+  results
+}
 
 as_triples_df <- function(data) {
   if (inherits(data, "rdf")) {
@@ -169,38 +188,45 @@ resolve_focus_nodes <- function(shape, triples) {
 }
 
 validate_node_constraint <- function(constraint, focus_nodes, triples,
-                                      shape_id, severity) {
+                                      shape_id, severity, shapes, visited) {
   validators <- list(
     "sh:ClassConstraintComponent" = validate_node_class,
-    "sh:InConstraintComponent"    = validate_node_in
+    "sh:InConstraintComponent"    = validate_node_in,
+    "sh:OrConstraintComponent"    = validate_node_or,
+    "sh:AndConstraintComponent"   = validate_node_and,
+    "sh:XoneConstraintComponent"  = validate_node_xone
   )
 
   fun <- validators[[constraint$component]]
   if (is.null(fun)) return(list())
 
-  fun(constraint, focus_nodes, triples, shape_id, severity)
+  fun(constraint, focus_nodes, triples, shape_id, severity, shapes, visited)
 }
 
 validate_property_constraint <- function(constraint, values, datatypes,
                                           focus_node, path, shape_id,
-                                          severity, triples) {
+                                          severity, triples, shapes, visited) {
   validators <- list(
     "sh:MinCountConstraintComponent" = validate_min_count,
     "sh:MaxCountConstraintComponent" = validate_max_count,
     "sh:DatatypeConstraintComponent" = validate_datatype,
     "sh:ClassConstraintComponent"    = validate_property_class,
-    "sh:InConstraintComponent"       = validate_in
+    "sh:InConstraintComponent"       = validate_in,
+    "sh:NodeConstraintComponent"     = validate_property_node,
+    "sh:OrConstraintComponent"       = validate_property_or,
+    "sh:AndConstraintComponent"      = validate_property_and,
+    "sh:XoneConstraintComponent"     = validate_property_xone
   )
 
   fun <- validators[[constraint$component]]
   if (is.null(fun)) return(list())
 
   fun(constraint, values, datatypes, focus_node, path, shape_id, severity,
-      triples)
+      triples, shapes, visited)
 }
 
 validate_min_count <- function(constraint, values, datatypes, focus_node, path,
-                               shape_id, severity, triples) {
+                               shape_id, severity, triples, ...) {
   min_count <- constraint$params$minCount %||% 0L
   n <- length(values)
 
@@ -215,7 +241,7 @@ validate_min_count <- function(constraint, values, datatypes, focus_node, path,
 }
 
 validate_max_count <- function(constraint, values, datatypes, focus_node, path,
-                               shape_id, severity, triples) {
+                               shape_id, severity, triples, ...) {
   max_count <- constraint$params$maxCount %||% Inf
   n <- length(values)
 
@@ -230,7 +256,7 @@ validate_max_count <- function(constraint, values, datatypes, focus_node, path,
 }
 
 validate_datatype <- function(constraint, values, datatypes, focus_node, path,
-                              shape_id, severity, triples) {
+                              shape_id, severity, triples, shapes, visited) {
   expected <- constraint$params$datatype
   if (!length(values)) return(list())
 
@@ -249,7 +275,8 @@ validate_datatype <- function(constraint, values, datatypes, focus_node, path,
 }
 
 validate_property_class <- function(constraint, values, datatypes, focus_node,
-                                    path, shape_id, severity, triples) {
+                                    path, shape_id, severity, triples, shapes,
+                                    visited) {
   rdf_type <- c("rdf:type", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>")
   expected <- constraint$params$class
   results <- list()
@@ -272,7 +299,7 @@ validate_property_class <- function(constraint, values, datatypes, focus_node,
 }
 
 validate_in <- function(constraint, values, datatypes, focus_node, path,
-                        shape_id, severity, triples) {
+                        shape_id, severity, triples, shapes, visited) {
   allowed <- constraint$params$in %||% character()
   if (!length(values)) return(list())
 
@@ -291,7 +318,7 @@ validate_in <- function(constraint, values, datatypes, focus_node, path,
 }
 
 validate_node_class <- function(constraint, focus_nodes, triples, shape_id,
-                                severity) {
+                                severity, shapes, visited) {
   rdf_type <- c("rdf:type", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>")
   expected <- constraint$params$class
   results <- list()
@@ -313,7 +340,7 @@ validate_node_class <- function(constraint, focus_nodes, triples, shape_id,
 }
 
 validate_node_in <- function(constraint, focus_nodes, triples, shape_id,
-                             severity) {
+                             severity, shapes, visited) {
   allowed <- constraint$params$in %||% character()
   results <- list()
 
@@ -328,6 +355,164 @@ validate_node_in <- function(constraint, focus_nodes, triples, shape_id,
   }
 
   results
+}
+
+validate_property_node <- function(constraint, values, datatypes, focus_node,
+                                   path, shape_id, severity, triples, shapes,
+                                   visited) {
+  target_shape <- constraint$params$node
+  if (is.null(target_shape)) return(list())
+
+  results <- list()
+
+  for (val in values) {
+    res <- run_shape_reference(target_shape, val, triples, shapes, visited)
+    results <- c(results, res$results)
+
+    if (!res$conforms) {
+      msg <- sprintf("Value %s for path %s does not satisfy shape %s.",
+                     val, path, target_shape)
+      results[[length(results) + 1L]] <- new_result(
+        focus_node, shape_id, path, constraint$component, msg, severity,
+        val, constraint$scope
+      )
+    }
+  }
+
+  results
+}
+
+validate_property_or <- function(constraint, values, datatypes, focus_node,
+                                 path, shape_id, severity, triples, shapes,
+                                 visited) {
+  shape_ids <- constraint$params$or %||% character()
+  validate_logical_shapes("or", shape_ids, values, focus_node, path, shape_id,
+                          severity, triples, shapes, visited, constraint$scope,
+                          constraint$component)
+}
+
+validate_property_and <- function(constraint, values, datatypes, focus_node,
+                                  path, shape_id, severity, triples, shapes,
+                                  visited) {
+  shape_ids <- constraint$params$and %||% character()
+  validate_logical_shapes("and", shape_ids, values, focus_node, path, shape_id,
+                          severity, triples, shapes, visited, constraint$scope,
+                          constraint$component)
+}
+
+validate_property_xone <- function(constraint, values, datatypes, focus_node,
+                                   path, shape_id, severity, triples, shapes,
+                                   visited) {
+  shape_ids <- constraint$params$xone %||% character()
+  validate_logical_shapes("xone", shape_ids, values, focus_node, path, shape_id,
+                          severity, triples, shapes, visited, constraint$scope,
+                          constraint$component)
+}
+
+validate_node_or <- function(constraint, focus_nodes, triples, shape_id,
+                             severity, shapes, visited) {
+  shape_ids <- constraint$params$or %||% character()
+  validate_logical_shapes("or", shape_ids, focus_nodes, focus_nodes, NA_character_,
+                          shape_id, severity, triples, shapes, visited,
+                          constraint$scope, constraint$component)
+}
+
+validate_node_and <- function(constraint, focus_nodes, triples, shape_id,
+                              severity, shapes, visited) {
+  shape_ids <- constraint$params$and %||% character()
+  validate_logical_shapes("and", shape_ids, focus_nodes, focus_nodes,
+                          NA_character_, shape_id, severity, triples, shapes,
+                          visited, constraint$scope, constraint$component)
+}
+
+validate_node_xone <- function(constraint, focus_nodes, triples, shape_id,
+                               severity, shapes, visited) {
+  shape_ids <- constraint$params$xone %||% character()
+  validate_logical_shapes("xone", shape_ids, focus_nodes, focus_nodes,
+                          NA_character_, shape_id, severity, triples, shapes,
+                          visited, constraint$scope, constraint$component)
+}
+
+validate_logical_shapes <- function(type, shape_ids, values, focus_node, path,
+                                    shape_id, severity, triples, shapes,
+                                    visited, scope, component) {
+  if (!length(shape_ids) || !length(values)) return(list())
+
+  results <- list()
+
+  for (val in values) {
+    evals <- lapply(shape_ids, run_shape_reference, node = val, triples = triples,
+                    shapes = shapes, visited = visited)
+    conforms <- vapply(evals, function(x) x$conforms, logical(1))
+    nested_results <- unlist(lapply(evals, `[[`, "results"), recursive = FALSE)
+    results <- c(results, nested_results)
+
+    ok <- switch(type,
+                 or = any(conforms),
+                 and = all(conforms),
+                 xone = sum(conforms) == 1L,
+                 FALSE)
+
+    if (!ok) {
+      msg <- switch(type,
+                    or = sprintf("Value %s does not satisfy any of %s.", val,
+                                 paste(shape_ids, collapse = ", ")),
+                    and = sprintf("Value %s does not satisfy all of %s.", val,
+                                   paste(shape_ids, collapse = ", ")),
+                    xone = sprintf("Value %s must satisfy exactly one of %s.",
+                                   val, paste(shape_ids, collapse = ", ")))
+      results[[length(results) + 1L]] <- new_result(
+        focus_node = focus_node,
+        shape_id   = shape_id,
+        path       = path,
+        component  = component,
+        message    = msg,
+        severity   = severity,
+        value      = val,
+        scope      = scope
+      )
+    }
+  }
+
+  results
+}
+
+run_shape_reference <- function(shape_id, node, triples, shapes, visited) {
+  shape <- get_shape(shapes, shape_id)
+  if (is.null(shape)) {
+    msg <- sprintf("Referenced shape %s not found.", shape_id)
+    res <- new_result(node, shape_id, NA_character_, "sh:NodeConstraintComponent",
+                      msg, "sh:Violation", node, NA_character_)
+    return(list(conforms = FALSE, results = list(res)))
+  }
+
+  res <- validate_shape_on_nodes(shape, focus_nodes = node, triples = triples,
+                                 shapes = shapes, visited = visited)
+
+  if (!length(res)) {
+    return(list(conforms = TRUE, results = list()))
+  }
+
+  res_df <- as.data.frame(do.call(rbind, res), stringsAsFactors = FALSE)
+  conforms <- !any(res_df$severity == "sh:Violation")
+
+  list(conforms = conforms, results = res)
+}
+
+get_shape <- function(shapes, shape_id) {
+  if (is.null(shape_id)) return(NULL)
+
+  if (shape_id %in% names(shapes$shapes)) {
+    return(shapes$shapes[[shape_id]])
+  }
+
+  matches <- vapply(shapes$shapes, function(s) identical(s$id, shape_id),
+                    logical(1))
+  if (any(matches)) {
+    return(shapes$shapes[[which(matches)[1L]]])
+  }
+
+  NULL
 }
 
 new_result <- function(focus_node, shape_id, path, component, message, severity,
