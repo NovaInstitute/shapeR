@@ -8,6 +8,10 @@
 #' @param file Path or URL to a SHACL shapes file readable by \code{rdflib}.
 #' @param base_iri Optional base IRI to store in the resulting shape graph
 #'   (does not affect parsing, which is delegated to \code{rdflib}).
+#' @param prefixes Optional named character vector of prefixes to attach to the
+#'   resulting shape graph and to use when normalising identifiers.
+#' @param normalise_iris Logical; when TRUE, IDs and paths are expanded using
+#'   \code{prefixes} and \code{base_iri} before being stored in objects.
 #'
 #' @return An object of class \code{"sh_shape_graph"}.
 #'
@@ -20,7 +24,9 @@
 #' @importFrom dplyr select filter mutate group_by summarise transmute
 #' @importFrom dplyr distinct left_join
 #' @export
-read_shacl <- function(file, base_iri = NULL) {
+read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = FALSE) {
+
+  prefixes <- prefixes %||% character()
 
   # ------------------ constants for IRIs -----------------------------------
   sh_ns   <- "http://www.w3.org/ns/shacl#"
@@ -203,7 +209,10 @@ read_shacl <- function(file, base_iri = NULL) {
       annotations = annotations,
       severity    = severity,
       deactivated = deactivated,
-      extras      = list()
+      extras      = list(),
+      prefixes    = prefixes,
+      base_iri    = base_iri,
+      normalise   = normalise_iris
     )
 
     property_shapes[[pid]] <- ps_obj
@@ -323,7 +332,10 @@ read_shacl <- function(file, base_iri = NULL) {
       annotations = annotations,
       severity    = severity,
       deactivated = deactivated,
-      extras      = list()
+      extras      = list(),
+      prefixes    = prefixes,
+      base_iri    = base_iri,
+      normalise   = normalise_iris
     )
 
     node_shapes[[nid]] <- node_obj
@@ -335,7 +347,7 @@ read_shacl <- function(file, base_iri = NULL) {
   # shapes are reachable via node_shapes[[i]]$properties.
   sg <- sh_shape_graph(
     shapes   = node_shapes,
-    prefixes = NULL,     # can be populated later from rdf namespaces
+    prefixes = prefixes,
     base_iri = base_iri,
     metadata = list()
   )

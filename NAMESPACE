@@ -1,5 +1,10 @@
 # Placeholder NAMESPACE. Run roxygen2 to regenerate.
 export(expand_rdf_list)
+export(expand_iri)
 export(first_or_na)
+export(is_curie)
+export(normalise_iri)
+export(resolve_base_iri)
+export(contract_iri)
 export(read_shacl)
 export(shorten_iri)
