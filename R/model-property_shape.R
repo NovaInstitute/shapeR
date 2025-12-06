@@ -134,3 +134,4 @@ sh_property_shape <- function(id = NULL,
 
   structure(out, class = c("sh_property_shape", "sh_shape", "list"))
 }
+

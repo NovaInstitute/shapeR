@@ -26,6 +26,19 @@
 #' @examples
 #' \dontrun{
 #' visualiseSHACL("inst/extdata/shapes.ttl")
+#'
+#' prefixes <- c(
+#'   ex   = "http://example.com/ns#",
+#'   base = "http://example.com/base#"
+#' )
+#' visualiseSHACL(
+#'   read_shacl(
+#'     system.file("extdata", "visualise-shacl.ttl", package = "shapeR"),
+#'     base_iri = "http://example.com/base#",
+#'     prefixes = prefixes,
+#'     normalise_iris = TRUE
+#'   )
+#' )
 #' }
 #'
 #' @importFrom dplyr bind_rows distinct
@@ -49,6 +62,12 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
   layout <- check_scalar_character(layout, "layout")
 
   prefixes <- shape_graph$prefixes %||% character()
+  base_iri <- shape_graph$base_iri %||% NULL
+
+  format_iri <- function(x) {
+    if (is.null(x)) return(NULL)
+    contract_iri(x, prefixes, base_iri)
+  }
 
   node_shapes <- shape_graph$shapes
 
@@ -71,15 +90,34 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
 
   for (shape in node_shapes) {
     target <- shape$targets$targetClass
-    label <- if (length(target)) {
-      paste0(shorten_iri(shape$id, prefixes), " \u2192 ", shorten_iri(target[[1L]], prefixes))
+
+    class_constraint <- get_param(shape$constraints, "class")
+    in_constraint    <- get_param(shape$constraints, "in")
+    or_constraint    <- get_param(shape$constraints, "or")
+    and_constraint   <- get_param(shape$constraints, "and")
+    xone_constraint  <- get_param(shape$constraints, "xone")
+
+    base_label <- if (length(target)) {
+      paste0(format_iri(shape$id), " \u2192 ", format_iri(target[[1L]]))
     } else {
-      shorten_iri(shape$id, prefixes)
+      format_iri(shape$id)
     }
+
+    shape_label <- paste(
+      stats::na.omit(c(
+        base_label,
+        if (!is.null(class_constraint)) paste0("class: ", paste(format_iri(as.character(class_constraint)), collapse = ", ")) else NA_character_,
+        if (!is.null(in_constraint)   && length(in_constraint))   paste0("in: ",   paste(format_iri(as.character(in_constraint)), collapse = ", ")) else NA_character_,
+        if (!is.null(or_constraint)   && length(or_constraint))   paste0("or: ",   paste(format_iri(as.character(or_constraint)), collapse = ", ")) else NA_character_,
+        if (!is.null(and_constraint)  && length(and_constraint))  paste0("and: ",  paste(format_iri(as.character(and_constraint)), collapse = ", ")) else NA_character_,
+        if (!is.null(xone_constraint) && length(xone_constraint)) paste0("xone: ", paste(format_iri(as.character(xone_constraint)), collapse = ", ")) else NA_character_
+      )),
+      collapse = "\n"
+    )
 
     shape_rows[[length(shape_rows) + 1L]] <- tibble::tibble(
       node  = shape$id,
-      label = label
+      label = shape_label
     )
 
     if (length(shape$properties) == 0L) {
@@ -93,6 +131,8 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
       class_val <- get_param(prop$constraints, "class")
       in_vals   <- get_param(prop$constraints, "in")
       or_vals   <- prop$nested$or
+      and_vals  <- prop$nested$and
+      xone_vals <- prop$nested$xone
       node_val  <- prop$nested$node
 
       prop_id <- prop$id %||% paste0(shape$id, "::", prop$path)
@@ -110,21 +150,31 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
       }
 
       label_parts <- stats::na.omit(c(
-        shorten_iri(prop$path, prefixes),
+        format_iri(prop$path),
         card,
-        if (!is.null(datatype)) shorten_iri(datatype, prefixes) else NA_character_,
-        if (!is.null(class_val)) paste0("class: ", shorten_iri(class_val, prefixes)) else NA_character_,
+        if (!is.null(datatype)) format_iri(datatype) else NA_character_,
+        if (!is.null(class_val)) paste0("class: ", format_iri(class_val)) else NA_character_,
         if (!is.null(in_vals) && length(in_vals)) {
-          paste0("in: ", paste(shorten_iri(as.character(in_vals), prefixes), collapse = ", "))
+          paste0("in: ", paste(format_iri(as.character(in_vals)), collapse = ", "))
         } else {
           NA_character_
         },
         if (!is.null(or_vals) && length(or_vals)) {
-          paste0("or: ", paste(shorten_iri(as.character(or_vals), prefixes), collapse = ", "))
+          paste0("or: ", paste(format_iri(as.character(or_vals)), collapse = ", "))
         } else {
           NA_character_
         },
-        if (!is.null(node_val)) paste0("node: ", shorten_iri(node_val, prefixes)) else NA_character_
+        if (!is.null(and_vals) && length(and_vals)) {
+          paste0("and: ", paste(format_iri(as.character(and_vals)), collapse = ", "))
+        } else {
+          NA_character_
+        },
+        if (!is.null(xone_vals) && length(xone_vals)) {
+          paste0("xone: ", paste(format_iri(as.character(xone_vals)), collapse = ", "))
+        } else {
+          NA_character_
+        },
+        if (!is.null(node_val)) paste0("node: ", format_iri(node_val)) else NA_character_
       ))
 
       prop_rows[[length(prop_rows) + 1L]] <- tibble::tibble(
@@ -134,13 +184,75 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
 
       edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
         from = shape$id,
-        to   = prop_id
+        to   = prop_id,
+        relation = "property"
       )
 
       if (!is.null(node_val)) {
         edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
           from = prop_id,
-          to   = node_val
+          to   = node_val,
+          relation = "node"
+        )
+      }
+
+      if (length(or_vals)) {
+        for (target in or_vals) {
+          edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+            from = prop_id,
+            to   = target,
+            relation = "or"
+          )
+        }
+      }
+
+      if (length(and_vals)) {
+        for (target in and_vals) {
+          edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+            from = prop_id,
+            to   = target,
+            relation = "and"
+          )
+        }
+      }
+
+      if (length(xone_vals)) {
+        for (target in xone_vals) {
+          edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+            from = prop_id,
+            to   = target,
+            relation = "xone"
+          )
+        }
+      }
+    }
+
+    if (length(or_constraint)) {
+      for (target in or_constraint) {
+        edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+          from = shape$id,
+          to   = target,
+          relation = "or"
+        )
+      }
+    }
+
+    if (length(and_constraint)) {
+      for (target in and_constraint) {
+        edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+          from = shape$id,
+          to   = target,
+          relation = "and"
+        )
+      }
+    }
+
+    if (length(xone_constraint)) {
+      for (target in xone_constraint) {
+        edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
+          from = shape$id,
+          to   = target,
+          relation = "xone"
         )
       }
     }
@@ -152,7 +264,7 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
   edges <- if (length(edge_rows)) {
     dplyr::bind_rows(edge_rows)
   } else {
-    tibble::tibble(from = character(), to = character())
+    tibble::tibble(from = character(), to = character(), relation = character())
   }
 
   graph <- tidygraph::tbl_graph(nodes = nodes, edges = edges, directed = TRUE)

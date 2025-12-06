@@ -1,5 +1,4 @@
 #' General utilities for shapeR.
-#'
 #' These helpers support argument validation and small internal conveniences
 #' used throughout the package.
 
@@ -75,4 +74,13 @@ check_list_of_class <- function(x, class, arg_name = NULL) {
   }
 
   x
+
 }
+
+assert_scalar_character <- function(x, arg) {
+  if (!is.character(x) || length(x) != 1L || is.na(x)) {
+    stop(sprintf("`%s` must be a non-NA scalar character string.", arg),
+         call. = FALSE)
+  }
+  invisible(x)
+  }
