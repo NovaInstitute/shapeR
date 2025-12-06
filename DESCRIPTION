@@ -11,7 +11,12 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 Imports:
     rdflib,
-    dplyr
+    dplyr,
+    tibble,
+    tidygraph,
+    ggraph,
+    ggplot2,
+    grid
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

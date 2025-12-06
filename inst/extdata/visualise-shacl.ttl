@@ -1,0 +1,23 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.com/ns#> .
+@base <http://example.com/base#> .
+
+ex:FriendShape a sh:NodeShape .
+ex:ColleagueShape a sh:NodeShape .
+ex:TrustedShape a sh:NodeShape .
+ex:FallbackShape a sh:NodeShape .
+ex:AltShape a sh:NodeShape .
+
+<http://example.com/base#PersonShape> a sh:NodeShape ;
+  sh:targetClass ex:Person ;
+  sh:or ( ex:AltShape ex:TrustedShape ) ;
+  sh:property [
+    sh:path ex:knows ;
+    sh:minCount 1 ;
+    sh:datatype ex:KnowsDatatype ;
+    sh:class ex:Person ;
+    sh:node ex:FriendShape ;
+    sh:or ( ex:FriendShape ex:ColleagueShape ) ;
+    sh:and ( ex:TrustedShape ) ;
+    sh:xone ( ex:AltShape ex:FallbackShape )
+  ] .
