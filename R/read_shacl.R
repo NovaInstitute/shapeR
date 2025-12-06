@@ -64,7 +64,12 @@ read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = 
     rdf,
     "SELECT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object }"
   ) |>
-    dplyr::select(subject, predicate, object)
+    dplyr::select(subject, predicate, object) |>
+    dplyr::mutate(
+      subject   = add_angle_brackets(subject),
+      predicate = add_angle_brackets(predicate),
+      object    = add_angle_brackets(object)
+    )
 
   # ------------------ identify property shapes -----------------------------
   prop_links <- triples |>

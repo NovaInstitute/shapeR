@@ -69,6 +69,10 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
     contract_iri(x, prefixes, base_iri)
   }
 
+  clean_id <- function(x) {
+    strip_angle_brackets(as.character(x))
+  }
+
   node_shapes <- shape_graph$shapes
 
   if (length(node_shapes) == 0L) {
@@ -135,7 +139,11 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
       xone_vals <- prop$nested$xone
       node_val  <- prop$nested$node
 
-      prop_id <- prop$id %||% paste0(shape$id, "::", prop$path)
+      prop_id <- if (!is.null(prop$id) && !startsWith(prop$id, "_:") ) {
+        prop$id
+      } else {
+        paste0(shape$id, "::", prop$path)
+      }
 
       card <- if (!is.null(min_count) || !is.null(max_count)) {
         paste0(
@@ -255,19 +263,30 @@ visualiseSHACL <- function(file, layout = "sugiyama") {
           relation = "xone"
         )
       }
-    }
+  }
   }
 
   nodes <- dplyr::bind_rows(c(shape_rows, prop_rows)) |>
-    dplyr::distinct(node, .keep_all = TRUE)
+    dplyr::distinct(node, .keep_all = TRUE) |>
+    dplyr::mutate(node = clean_id(node))
 
   edges <- if (length(edge_rows)) {
-    dplyr::bind_rows(edge_rows)
+    dplyr::bind_rows(edge_rows) |>
+      dplyr::mutate(
+        from = clean_id(from),
+        to   = clean_id(to)
+      )
   } else {
     tibble::tibble(from = character(), to = character(), relation = character())
   }
 
   graph <- tidygraph::tbl_graph(nodes = nodes, edges = edges, directed = TRUE)
+  graph <- graph |>
+    tidygraph::activate(edges) |>
+    dplyr::mutate(
+      from_label = unname(nodes$node[from]),
+      to_label   = unname(nodes$node[to])
+    )
 
   p <- ggraph::ggraph(graph, layout = layout) +
     ggraph::geom_edge_link(

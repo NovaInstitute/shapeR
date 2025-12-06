@@ -25,6 +25,22 @@ validate_shacl <- function(data, shapes) {
 
   triples <- as_triples_df(data)
 
+  shape_strings <- c(
+    vapply(shapes$shapes, function(s) s$id %||% NA_character_, character(1)),
+    unlist(lapply(shapes$shapes, function(s) s$targets), use.names = FALSE),
+    vapply(
+      unlist(lapply(shapes$shapes, `[[`, "properties"), recursive = FALSE, use.names = FALSE),
+      function(p) p$path %||% NA_character_,
+      character(1)
+    )
+  )
+
+  if (any(startsWith(stats::na.omit(shape_strings), "<"))) {
+    triples$subject   <- add_angle_brackets(triples$subject)
+    triples$predicate <- add_angle_brackets(triples$predicate)
+    triples$object    <- add_angle_brackets(triples$object)
+  }
+
   results <- list()
 
   for (shape in shapes$shapes) {
@@ -110,7 +126,7 @@ validate_shape_on_nodes <- function(shape, focus_nodes, triples, shapes,
 
 as_triples_df <- function(data) {
   if (inherits(data, "rdf")) {
-    df <- rdf_query(
+    df <- rdflib::rdf_query(
       data,
       "SELECT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object }"
     )
@@ -145,7 +161,7 @@ normalize_object_column <- function(df) {
     df$datatype <- NA_character_
   }
 
-  pat <- '^"(.*)"\^\^<([^>]+)>'
+    pat <- "^\"(.*)\"\\^\\^<([^>]+)>"
   matches <- regexec(pat, df$object)
   captures <- regmatches(df$object, matches)
 
@@ -182,6 +198,12 @@ resolve_focus_nodes <- function(shape, triples) {
   if (length(shape$targets$targetObjectsOf)) {
     idx <- triples$predicate %in% shape$targets$targetObjectsOf
     nodes <- c(nodes, triples$object[idx])
+  }
+
+  if (length(shape$properties)) {
+    prop_paths <- vapply(shape$properties, function(p) p$path, character(1))
+    idx <- triples$predicate %in% prop_paths
+    nodes <- c(nodes, triples$subject[idx])
   }
 
   unique(nodes)
@@ -300,7 +322,7 @@ validate_property_class <- function(constraint, values, datatypes, focus_node,
 
 validate_in <- function(constraint, values, datatypes, focus_node, path,
                         shape_id, severity, triples, shapes, visited) {
-  allowed <- constraint$params$in %||% character()
+    allowed <- constraint$params[["in"]] %||% character()
   if (!length(values)) return(list())
 
   invalid <- !values %in% allowed
@@ -341,7 +363,7 @@ validate_node_class <- function(constraint, focus_nodes, triples, shape_id,
 
 validate_node_in <- function(constraint, focus_nodes, triples, shape_id,
                              severity, shapes, visited) {
-  allowed <- constraint$params$in %||% character()
+    allowed <- constraint$params[["in"]] %||% character()
   results <- list()
 
   for (node in focus_nodes) {

@@ -34,7 +34,7 @@ test_that("read_shacl expands RDF list constraints", {
   expect_equal(prop_shape$path, "<http://example.com/prop>")
 
   prop_in <- get_component(prop_shape$constraints, "sh:InConstraintComponent")
-  expect_equal(prop_in$params$in, c("<http://example.com/Choice1>", "<http://example.com/Choice2>"))
+  expect_equal(prop_in$params[["in"]], c("<http://example.com/Choice1>", "<http://example.com/Choice2>"))
 
   expect_equal(prop_shape$nested$node, "<http://example.com/AltShape>")
   expect_equal(prop_shape$nested$or, c("<http://example.com/AltShape>", "<http://example.com/ThirdShape>"))
@@ -47,6 +47,6 @@ test_that("read_shacl expands RDF list constraints", {
 
   alt_prop <- alt_shape$properties[[1L]]
   alt_in <- get_component(alt_prop$constraints, "sh:InConstraintComponent")
-  expect_equal(alt_in$params$in,
+  expect_equal(alt_in$params[["in"]],
                c("<http://example.com/Child1>", "<http://example.com/Child2>", "<http://example.com/Child3>"))
 })

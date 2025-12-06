@@ -12,7 +12,7 @@ shorten_iri <- function(iri, prefixes = character()) {
 
   prefixes_clean <- strip_angle_brackets(unname(prefixes))
 
-  vapply(
+  unname(vapply(
     iri,
     function(x) {
       cleaned <- strip_angle_brackets(x)
@@ -25,5 +25,5 @@ shorten_iri <- function(iri, prefixes = character()) {
       paste0(names(prefixes)[idx], ":", substring(cleaned, nchar(prefixes_clean[idx]) + 1L))
     },
     character(1)
-  )
+  ))
 }

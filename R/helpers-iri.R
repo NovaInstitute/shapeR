@@ -9,13 +9,15 @@ strip_angle_brackets <- function(x) {
   vapply(
     x,
     function(val) {
-      if (!is.character(val) || is.na(val)) {
+      if (is.na(val)) {
         return(val)
       }
-      if (startsWith(val, "<") && endsWith(val, ">")) {
-        substring(val, 2L, nchar(val) - 1L)
+      val_chr <- as.character(val)
+
+      if (startsWith(val_chr, "<") && endsWith(val_chr, ">")) {
+        substring(val_chr, 2L, nchar(val_chr) - 1L)
       } else {
-        val
+        val_chr
       }
     },
     character(1)
@@ -24,19 +26,24 @@ strip_angle_brackets <- function(x) {
 
 #' @keywords internal
 add_angle_brackets <- function(x) {
-  vapply(
+  unname(vapply(
     x,
     function(val) {
-      if (!is.character(val) || is.na(val) || startsWith(val, "<") || startsWith(val, "_:") || grepl("^[A-Za-z][A-Za-z0-9+.-]*://", val)) {
+      if (is.na(val)) {
         return(val)
       }
-      if (endsWith(val, ">")) {
-        return(val)
+      val_chr <- as.character(val)
+
+      if (!is.character(val) || startsWith(val_chr, "<") || startsWith(val_chr, "_:")) {
+        return(val_chr)
       }
-      paste0("<", val, ">")
+      if (endsWith(val_chr, ">")) {
+        return(val_chr)
+      }
+      paste0("<", val_chr, ">")
     },
     character(1)
-  )
+  ))
 }
 
 #' Identify CURIE-like identifiers
@@ -56,11 +63,11 @@ is_curie <- function(x) {
 #' @return Character vector with absolute IRIs wrapped in angle brackets.
 #' @export
 resolve_base_iri <- function(iri, base_iri = NULL) {
-  if (is.null(base_iri)) return(iri)
+  if (is.null(base_iri)) return(add_angle_brackets(iri))
 
   base_clean <- strip_angle_brackets(base_iri)
 
-  vapply(
+  unname(vapply(
     iri,
     function(x) {
       if (is.na(x)) return(x)
@@ -74,7 +81,7 @@ resolve_base_iri <- function(iri, base_iri = NULL) {
       paste0("<", base_clean, cleaned, ">")
     },
     character(1)
-  )
+  ))
 }
 
 #' Expand CURIEs using a prefix map and base IRI
@@ -107,7 +114,7 @@ expand_iri <- function(iri, prefixes = character(), base_iri = NULL) {
     character(1)
   )
 
-  resolve_base_iri(expanded, base_iri)
+  add_angle_brackets(resolve_base_iri(expanded, base_iri))
 }
 
 #' Contract expanded IRIs using a prefix map
@@ -123,7 +130,7 @@ contract_iri <- function(iri, prefixes = character(), base_iri = NULL) {
   if (is.null(base_iri)) return(shortened)
 
   base_clean <- strip_angle_brackets(base_iri)
-  vapply(
+  unname(vapply(
     shortened,
     function(x) {
       if (is.na(x)) return(x)
@@ -136,7 +143,7 @@ contract_iri <- function(iri, prefixes = character(), base_iri = NULL) {
       }
     },
     character(1)
-  )
+  ))
 }
 
 #' Normalise IRIs through expansion and optional contraction

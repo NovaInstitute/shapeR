@@ -32,11 +32,13 @@ test_that("visualiseSHACL labels nested shapes and prefixes", {
   expect_true(any(grepl("or: ex:AltShape, ex:TrustedShape", shape_label, fixed = TRUE)))
 
   formatted_edges <- edge_tbl
-  formatted_edges$to   <- contract_iri(formatted_edges$to, prefixes, base_iri)
-  formatted_edges$from <- contract_iri(formatted_edges$from, prefixes, base_iri)
+  formatted_edges$to   <- contract_iri(formatted_edges$to_label, prefixes, base_iri)
+  formatted_edges$from <- contract_iri(formatted_edges$from_label, prefixes, base_iri)
 
-  relation_counts <- sort(table(formatted_edges$relation))
-  expect_equal(unname(relation_counts), c(and = 1, node = 1, or = 4, property = 1, xone = 2))
+  relation_df <- as.data.frame(table(formatted_edges$relation))
+  relation_counts <- setNames(relation_df$Freq, relation_df$Var1)
+  relation_counts <- relation_counts[order(names(relation_counts))]
+  expect_equal(relation_counts, c(and = 1, node = 1, or = 4, property = 1, xone = 2))
 
   expect_true(any(formatted_edges$relation == "and" & formatted_edges$to == "ex:TrustedShape"))
   expect_true(any(formatted_edges$relation == "xone" & formatted_edges$to == "ex:FallbackShape"))
