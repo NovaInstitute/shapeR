@@ -44,3 +44,13 @@ test_that("visualiseSHACL labels nested shapes and prefixes", {
   expect_true(any(formatted_edges$relation == "xone" & formatted_edges$to == "ex:FallbackShape"))
   expect_true(any(formatted_edges$relation == "node" & formatted_edges$to == "ex:FriendShape"))
 })
+
+test_that("visualiseSHACL can output via visNetwork", {
+  skip_if_not_installed("tidygraph")
+  skip_if_not_installed("visNetwork")
+
+  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shapeR")
+  sg <- read_shacl(ttl)
+
+  expect_s3_class(visualiseSHACL(sg, engine = "visNetwork"), "tbl_graph")
+})

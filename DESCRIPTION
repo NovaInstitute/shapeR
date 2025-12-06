@@ -18,5 +18,6 @@ Imports:
     ggplot2,
     grid
 Suggests:
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    visNetwork
 Config/testthat/edition: 3
