@@ -60,79 +60,41 @@ sh_node_shape <- function(id,
                           normalise   = FALSE) {
 
   # id: required scalar character
-  if (!is.character(id) || length(id) != 1L || is.na(id)) {
-    stop("`id` must be a non-NA scalar character string.", call. = FALSE)
-  }
+  id <- check_scalar_character(id, "id")
 
   # targets: list of character vectors
-  if (!is.list(targets)) {
-    stop("`targets` must be a list.", call. = FALSE)
-  }
+  targets <- check_list(targets, "targets")
 
   targetClass      <- targets$targetClass      %||% character()
   targetNode       <- targets$targetNode       %||% character()
   targetSubjectsOf <- targets$targetSubjectsOf %||% character()
   targetObjectsOf  <- targets$targetObjectsOf  %||% character()
 
-  for (v in list(
-    targetClass      = targetClass,
-    targetNode       = targetNode,
-    targetSubjectsOf = targetSubjectsOf,
-    targetObjectsOf  = targetObjectsOf
-  )) {
-    if (!is.character(v) || anyNA(v)) {
-      stop("All entries in `targets` must be character vectors without NA.",
-           call. = FALSE)
-    }
+  for (name in c("targetClass", "targetNode", "targetSubjectsOf", "targetObjectsOf")) {
+    check_character_vector(get(name), paste0("targets$", name))
   }
 
   # properties: list of sh_property_shape
-  if (!is.list(properties)) {
-    stop("`properties` must be a list.", call. = FALSE)
-  }
-  if (length(properties) > 0L) {
-    ok <- vapply(properties, inherits, logical(1), "sh_property_shape")
-    if (!all(ok)) {
-      stop("All elements of `properties` must be of class 'sh_property_shape'.",
-           call. = FALSE)
-    }
-  }
+  properties <- check_list(properties, "properties")
+  check_list_of_class(properties, "sh_property_shape", "properties")
 
   # constraints: list of sh_constraint
-  if (!is.list(constraints)) {
-    stop("`constraints` must be a list.", call. = FALSE)
-  }
-  if (length(constraints) > 0L) {
-    ok <- vapply(constraints, inherits, logical(1), "sh_constraint")
-    if (!all(ok)) {
-      stop("All elements of `constraints` must be of class 'sh_constraint'.",
-           call. = FALSE)
-    }
-  }
+  constraints <- check_list(constraints, "constraints")
+  check_list_of_class(constraints, "sh_constraint", "constraints")
 
   # annotations
-  if (!is.list(annotations)) {
-    stop("`annotations` must be a list.", call. = FALSE)
-  }
+  annotations <- check_list(annotations, "annotations")
 
   # severity
-  if (!is.null(severity) &&
-      (!is.character(severity) || length(severity) != 1L || is.na(severity))) {
-    stop("`severity` must be NULL or a non-NA scalar character string.",
-         call. = FALSE)
-  }
+  severity <- check_scalar_character(severity, "severity", allow_null = TRUE)
 
   # deactivated
-  if (!is.logical(deactivated) || length(deactivated) != 1L || is.na(deactivated)) {
-    stop("`deactivated` must be a non-NA logical scalar.", call. = FALSE)
-  }
+  deactivated <- check_logical_scalar(deactivated, "deactivated")
 
   # extras
-  if (!is.list(extras)) {
-    stop("`extras` must be a list.", call. = FALSE)
-  }
+  extras <- check_list(extras, "extras")
 
-  prefixes <- prefixes %||% character()
+  prefixes <- check_character_vector(prefixes, "prefixes", allow_null = TRUE) %||% character()
 
   out <- list(
     id          = id,
