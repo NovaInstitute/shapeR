@@ -52,12 +52,14 @@
 visualiseSHACL <- function(file, layout = "sugiyama") {
 
   if (is.character(file) && length(file) == 1L) {
-    shape_graph <- read_shacl(file)
+    shape_graph <- read_shacl(check_scalar_character(file, "file"))
   } else if (inherits(file, "sh_shape_graph")) {
     shape_graph <- file
   } else {
     stop("`file` must be a file path or a `sh_shape_graph` object.", call. = FALSE)
   }
+
+  layout <- check_scalar_character(layout, "layout")
 
   prefixes <- shape_graph$prefixes %||% character()
   base_iri <- shape_graph$base_iri %||% NULL

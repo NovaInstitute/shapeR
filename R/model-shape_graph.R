@@ -21,9 +21,11 @@ sh_shape_graph <- function(shapes   = list(),
                            base_iri = NULL,
                            metadata = list()) {
 
-  if (!is.list(shapes)) {
-    stop("`shapes` must be a list.", call. = FALSE)
-  }
+  shapes <- check_list(shapes, "shapes")
+
+  prefixes <- check_character_vector(prefixes, "prefixes", allow_null = TRUE)
+  base_iri <- check_scalar_character(base_iri, "base_iri", allow_null = TRUE)
+  metadata <- check_list(metadata, "metadata")
 
   structure(
     list(

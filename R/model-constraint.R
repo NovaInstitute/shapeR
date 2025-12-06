@@ -28,13 +28,9 @@ sh_constraint <- function(component,
                           scope = c("node", "property")) {
 
   # basic checks
-  if (!is.character(component) || length(component) != 1L || is.na(component)) {
-    stop("`component` must be a non-NA scalar character string.", call. = FALSE)
-  }
+  component <- check_scalar_character(component, "component")
 
-  if (!is.list(params)) {
-    stop("`params` must be a list.", call. = FALSE)
-  }
+  params <- check_list(params, "params")
 
   scope <- match.arg(scope)
 
