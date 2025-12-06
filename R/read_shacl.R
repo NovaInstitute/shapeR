@@ -10,8 +10,10 @@
 #'   (does not affect parsing, which is delegated to \code{rdflib}).
 #' @param prefixes Optional named character vector of prefixes to attach to the
 #'   resulting shape graph and to use when normalising identifiers.
-#' @param normalise_iris Logical; when TRUE, IDs and paths are expanded using
-#'   \code{prefixes} and \code{base_iri} before being stored in objects.
+#' @param normalise_iris Logical; when TRUE, IRIs (Internationalized Resource
+#'   Identifiers) and paths are expanded using \code{prefixes} and
+#'   \code{base_iri} before being stored in objects. The name refers to IRIs and
+#'   is unrelated to the \code{iris} example dataset.
 #'
 #' @return An object of class \code{"sh_shape_graph"}.
 #'
@@ -206,6 +208,8 @@ read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = 
       if (!is.null(c)) constraints[[length(constraints) + 1L]] <- c
     }
 
+    # normalise_iris is forwarded so sh_property_shape can expand CURIEs/
+    # relative IRIs using the supplied prefixes/base IRI when requested
     ps_obj <- sh_property_shape(
       id          = pid,
       path        = path,
@@ -329,6 +333,8 @@ read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = 
       }
     }
 
+    # Forward normalise_iris so identifiers and targets are expanded/contracted
+    # consistently within the node shape model
     node_obj <- sh_node_shape(
       id          = nid,
       targets     = targets,
