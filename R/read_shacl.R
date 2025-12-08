@@ -8,12 +8,10 @@
 #' @param file Path or URL to a SHACL shapes file readable by \code{rdflib}.
 #' @param base_iri Optional base IRI to store in the resulting shape graph
 #'   (does not affect parsing, which is delegated to \code{rdflib}).
-#' @param prefixes Optional named character vector of prefixes to attach to the
-#'   resulting shape graph and to use when normalising identifiers.
 #' @param normalise_iris Logical; when TRUE, IRIs (Internationalized Resource
-#'   Identifiers) and paths are expanded using \code{prefixes} and
-#'   \code{base_iri} before being stored in objects. The name refers to IRIs and
-#'   is unrelated to the \code{iris} example dataset.
+#'   Identifiers) and paths are expanded using prefix declarations found in the
+#'   parsed file along with \code{base_iri} before being stored in objects. The
+#'   name refers to IRIs and is unrelated to the \code{iris} example dataset.
 #'
 #' @return An object of class \code{"sh_shape_graph"}.
 #'
@@ -27,9 +25,27 @@
 #' @importFrom dplyr distinct left_join
 #' @importFrom utils download.file
 #' @export
-read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = FALSE) {
+read_shacl <- function(file, base_iri = NULL, normalise_iris = FALSE) {
 
-  prefixes <- prefixes %||% character()
+  extract_prefixes <- function(path) {
+    if (!is.character(path) || length(path) != 1L || !file.exists(path)) {
+      return(NULL)
+    }
+
+    lines <- readLines(path, warn = FALSE)
+    pattern <- "^\\s*(?:@prefix|PREFIX)\\s+([A-Za-z][A-Za-z0-9._-]*):\\s*<([^>]+)>"
+    matches <- regexec(pattern, lines, perl = TRUE)
+    captures <- regmatches(lines, matches)
+
+    prefixes <- vapply(captures, function(x) if (length(x) == 3L) x[3L] else NA_character_, character(1))
+    names(prefixes) <- vapply(captures, function(x) if (length(x) == 3L) x[2L] else NA_character_, character(1))
+
+    valid <- !is.na(prefixes) & nzchar(names(prefixes))
+    if (!any(valid)) return(NULL)
+
+    unique_idxs <- !duplicated(names(prefixes)[valid])
+    stats::setNames(prefixes[valid][unique_idxs], names(prefixes)[valid][unique_idxs])
+  }
 
   downloaded_file <- NULL
 
@@ -43,6 +59,8 @@ read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = 
   if (!is.null(downloaded_file)) {
     on.exit(unlink(downloaded_file), add = TRUE)
   }
+
+  prefixes <- extract_prefixes(file)
 
   # ------------------ constants for IRIs -----------------------------------
   sh_ns   <- "http://www.w3.org/ns/shacl#"

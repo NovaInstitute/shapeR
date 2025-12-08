@@ -11,11 +11,6 @@ test_that("read_shacl_tidy returns tidy tibble layout", {
 
   tidy_shapes <- read_shacl_tidy(
     tf,
-    prefixes = c(
-      ex = "http://example.com/",
-      schema = "http://schema.org/",
-      xsd = "http://www.w3.org/2001/XMLSchema#"
-    ),
     prefer_curie = TRUE
   )
 
