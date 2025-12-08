@@ -86,8 +86,17 @@ plot_shacl_tidy <- function(shapes, layout = "sugiyama", engine = c("ggraph", "v
 
       prop_id <- paste0(shape_id, "::", prop$path[[1L]])
 
-      min_count <- prop$minCount[[1L]]
-      max_count <- prop$maxCount[[1L]]
+      extract_count <- function(x) {
+        if (length(x) == 0L) return(NA_integer_)
+
+        val <- x[[1L]]
+        if (length(val) == 0L) return(NA_integer_)
+
+        val
+      }
+
+      min_count <- extract_count(prop$minCount)
+      max_count <- extract_count(prop$maxCount)
 
       card <- if (!all(is.na(c(min_count, max_count)))) {
         paste0(
