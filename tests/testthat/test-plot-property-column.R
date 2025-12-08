@@ -18,3 +18,28 @@ test_that("plot_property_column validates inputs", {
   expect_error(plot_property_column(bad_df), "include columns `id` and `property`")
 })
 
+test_that("plot_property_column handles missing cardinalities", {
+  skip_if_not_installed("tidygraph")
+  skip_if_not_installed("visNetwork")
+
+  property_tbl <- tibble::tibble(
+    path = c("ex:prop1", "ex:prop2"),
+    datatype = list(character(), character()),
+    class = list(character(), character()),
+    minCount = list(integer(0), c(1L, 2L)),
+    maxCount = list(integer(0), c(1L, 2L)),
+    `in` = list(list(), list()),
+    node = list(character(), character()),
+    or = list(list(), list()),
+    and = list(list(), list()),
+    xone = list(list(), list())
+  )
+
+  shapes <- tibble::tibble(
+    id = "ex:Shape",
+    property = list(property_tbl)
+  )
+
+  expect_s3_class(plot_property_column(shapes), "tbl_graph")
+})
+
