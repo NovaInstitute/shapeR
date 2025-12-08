@@ -3,7 +3,8 @@
 #' Create a node–edge diagram from the tidy tibble produced by
 #' [read_shacl_tidy()]. Shapes are connected to their property constraints, and
 #' nested shapes referenced by `sh:node`, `sh:or`, `sh:and`, or `sh:xone` are
-#' linked from the relevant property node.
+#' linked from the relevant property node. Shapes with multiple target classes
+#' are supported and will display each target in the shape label.
 #'
 #' @param shapes A tidy SHACL tibble, typically returned by
 #'   [read_shacl_tidy()].
@@ -12,6 +13,14 @@
 #' @param engine Visualisation engine to use. Choose "ggraph" for static plots
 #'   or "visNetwork" for an interactive widget.
 #'
+#' @examples
+#' tidy_shapes <- read_shacl_tidy(
+#'   "https://raw.githubusercontent.com/IndependentImpact/Bhash/refs/heads/main/ontology/shapes/consensus.shacl.ttl",
+#'   prefer_curie = TRUE
+#' )
+#' tidy_shapes$property <- lapply(tidy_shapes$property, clean_property_constraints)
+#' plot_shacl_tidy(tidy_shapes, engine = "visNetwork")
+#' 
 #' @return A `tidygraph::tbl_graph` object, returned invisibly. The plot is
 #'   printed as a side effect.
 #' @export
@@ -28,6 +37,8 @@ plot_shacl_tidy <- function(shapes, layout = "sugiyama", engine = c("ggraph", "v
   if (!all(required_cols %in% names(shapes))) {
     stop("`shapes` must contain columns `id` and `property`.", call. = FALSE)
   }
+
+  shapes$property <- lapply(shapes$property, clean_property_constraints)
 
   clean_id <- function(x) {
     strip_angle_brackets(as.character(x))
@@ -47,6 +58,7 @@ plot_shacl_tidy <- function(shapes, layout = "sugiyama", engine = c("ggraph", "v
   prop_rows <- list()
   edge_rows <- list()
   shape_rows <- list()
+  prop_detail_rows <- list()
 
   for (row_idx in seq_len(nrow(shapes))) {
     shape_id <- clean_id(shapes$id[[row_idx]])
@@ -106,6 +118,24 @@ plot_shacl_tidy <- function(shapes, layout = "sugiyama", engine = c("ggraph", "v
         label = paste(label_parts, collapse = "\n")
       )
 
+      prop_detail <- clean_property_constraints(prop)
+
+      if (nrow(prop_detail)) {
+        prop_detail <- cbind(node = clean_id(prop_id), prop_detail, shape = shape_id)
+
+        prop_detail[] <- lapply(prop_detail, function(col) {
+          if (!is.list(col)) return(col)
+
+          vapply(col, function(x) {
+            vals <- collapse_vals(x)
+            if (!length(vals)) return(NA_character_)
+            paste(vals, collapse = ", ")
+          }, character(1))
+        })
+
+        prop_detail_rows[[length(prop_detail_rows) + 1L]] <- prop_detail
+      }
+
       edge_rows[[length(edge_rows) + 1L]] <- tibble::tibble(
         from = shape_id,
         to = clean_id(prop_id),
@@ -160,12 +190,19 @@ plot_shacl_tidy <- function(shapes, layout = "sugiyama", engine = c("ggraph", "v
       stop("The `visNetwork` package is required for `engine = 'visNetwork'`.", call. = FALSE)
     }
 
+    prop_details <- if (length(prop_detail_rows)) {
+      dplyr::bind_rows(prop_detail_rows)
+    } else {
+      tibble::tibble()
+    }
+
     nodes_df <- nodes |>
       dplyr::transmute(
         id = node,
         label = label,
         title = gsub("\n", "<br>", label)
-      )
+      ) |>
+      dplyr::left_join(prop_details, by = c("id" = "node"))
 
     edges_df <- edges |>
       dplyr::mutate(
