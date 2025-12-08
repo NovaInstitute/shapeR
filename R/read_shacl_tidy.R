@@ -7,7 +7,8 @@
 #'
 #' @inheritParams read_shacl
 #' @param prefer_curie Logical; when `TRUE`, identifiers are contracted to
-#'   CURIEs using the supplied prefixes/base IRI when possible. When `FALSE`,
+#'   CURIEs using the prefixes declared in the source file (and base IRI when
+#'   supplied) when possible. When `FALSE`,
 #'   identifiers are returned without angle brackets but are otherwise left
 #'   unchanged.
 #'
@@ -19,7 +20,6 @@
 #' \dontrun{
 #' tidy_shapes <- read_shacl_tidy(
 #'   "Shapes/independent-impact-shapes.ttl",
-#'   prefixes = c(ex = "http://example.com/"),
 #'   prefer_curie = TRUE
 #' )
 #' }
@@ -29,18 +29,16 @@
 #' @export
 read_shacl_tidy <- function(file,
                             base_iri = NULL,
-                            prefixes = NULL,
                             normalise_iris = FALSE,
                             prefer_curie = TRUE) {
 
   sg <- read_shacl(
     file = file,
     base_iri = base_iri,
-    prefixes = prefixes,
     normalise_iris = normalise_iris
   )
 
-  prefix_map <- sg$prefixes %||% prefixes %||% character()
+  prefix_map <- sg$prefixes %||% character()
   base_for_contract <- sg$base_iri %||% base_iri
 
   convert_chars <- function(x) {

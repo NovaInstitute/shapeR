@@ -64,7 +64,7 @@ test_that("read_shacl stores prefixes and base IRI", {
   writeLines(ttl, tf)
   on.exit(unlink(tf), add = TRUE)
 
-  sg <- read_shacl(tf, base_iri = "http://example.com/", prefixes = c(ex = "http://example.com/"), normalise_iris = TRUE)
+  sg <- read_shacl(tf, base_iri = "http://example.com/", normalise_iris = TRUE)
 
   expect_equal(sg$base_iri, "http://example.com/")
   expect_equal(sg$prefixes, c(ex = "http://example.com/"))
