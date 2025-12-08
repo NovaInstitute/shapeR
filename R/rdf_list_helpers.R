@@ -59,6 +59,21 @@ rdf_list_rest_value <- function(node, triples) {
 #'
 #' @return Character vector of list members in order. If the head does not look
 #'   like an RDF list node, the head value itself is returned.
+#'
+#' @examples
+#' triples <- data.frame(
+#'   subject = c("_:b0", "_:b0", "_:b1", "_:b1"),
+#'   predicate = c(
+#'     "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>",
+#'     "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>",
+#'     "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>",
+#'     "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>"
+#'   ),
+#'   object = c("ex:first", "_:b1", "ex:second", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>"),
+#'   stringsAsFactors = FALSE
+#' )
+#'
+#' expand_rdf_list("_:b0", triples)
 #' @export
 expand_rdf_list <- function(head, triples) {
   if (is.null(head) || length(head) == 0L || is.na(head)) {

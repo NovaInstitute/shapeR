@@ -16,6 +16,21 @@
 #'   violation or warning). Supported result columns are `focusNode`, `shape`,
 #'   `path`, `component`, `message`, `severity`, `value`, and `scope`.
 #'
+#' @examples
+#' \dontrun{
+#' shapes <- read_shacl(system.file("extdata", "visualise-shacl.ttl",
+#'                                 package = "shapeR"))
+#'
+#' data <- data.frame(
+#'   subject = "<http://example.com/res1>",
+#'   predicate = "<http://example.com/name>",
+#'   object = "Alice",
+#'   stringsAsFactors = FALSE
+#' )
+#'
+#' validate_shacl(data, shapes)
+#' }
+#'
 #' @importFrom rdflib rdf_query
 #' @export
 validate_shacl <- function(data, shapes) {
