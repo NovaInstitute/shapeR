@@ -25,10 +25,24 @@
 #' @importFrom rdflib rdf_parse rdf_query
 #' @importFrom dplyr select filter mutate group_by summarise transmute
 #' @importFrom dplyr distinct left_join
+#' @importFrom utils download.file
 #' @export
 read_shacl <- function(file, base_iri = NULL, prefixes = NULL, normalise_iris = FALSE) {
 
   prefixes <- prefixes %||% character()
+
+  downloaded_file <- NULL
+
+  if (is.character(file) && length(file) == 1L && grepl("^https?://", file)) {
+    ext <- tools::file_ext(file)
+    downloaded_file <- tempfile(fileext = if (nzchar(ext)) paste0(".", ext) else "")
+    utils::download.file(file, downloaded_file, quiet = TRUE)
+    file <- downloaded_file
+  }
+
+  if (!is.null(downloaded_file)) {
+    on.exit(unlink(downloaded_file), add = TRUE)
+  }
 
   # ------------------ constants for IRIs -----------------------------------
   sh_ns   <- "http://www.w3.org/ns/shacl#"
