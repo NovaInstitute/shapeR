@@ -41,3 +41,18 @@ test_that("read_shacl_tidy returns tidy tibble layout", {
   expect_equal(book_props$class, "schema:Person")
   expect_equal(book_props$minCount, 1L)
 })
+
+test_that("read_shacl_tidy reads shapes from a URL", {
+  skip_if_not_installed("rdflib")
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("tibble")
+  skip_if_offline("raw.githubusercontent.com")
+
+  url <- "https://raw.githubusercontent.com/IndependentImpact/Bhash/refs/heads/main/ontology/shapes/consensus.shacl.ttl"
+
+  tidy_shapes <- read_shacl_tidy(url, prefer_curie = FALSE)
+
+  expect_s3_class(tidy_shapes, "tbl_df")
+  expect_gt(nrow(tidy_shapes), 0L)
+  expect_true(any(grepl("Consensus", tidy_shapes$id, fixed = TRUE)))
+})
