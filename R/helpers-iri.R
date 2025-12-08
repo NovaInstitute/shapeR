@@ -50,6 +50,9 @@ add_angle_brackets <- function(x) {
 #'
 #' @param x Character vector to inspect.
 #' @return Logical vector marking elements that look like CURIEs.
+#'
+#' @examples
+#' is_curie(c("ex:Person", "http://example.com/Person", NA))
 #' @export
 is_curie <- function(x) {
   if (!is.character(x)) return(rep(FALSE, length(x)))
@@ -61,6 +64,10 @@ is_curie <- function(x) {
 #' @param iri Character vector of IRIs or relative references.
 #' @param base_iri Base IRI to prepend when needed.
 #' @return Character vector with absolute IRIs wrapped in angle brackets.
+#'
+#' @examples
+#' resolve_base_iri(c("/name", "<http://example.com/id/1>"),
+#'                  base_iri = "http://example.com")
 #' @export
 resolve_base_iri <- function(iri, base_iri = NULL) {
   if (is.null(base_iri)) return(add_angle_brackets(iri))
@@ -90,6 +97,11 @@ resolve_base_iri <- function(iri, base_iri = NULL) {
 #' @param prefixes Named character vector mapping prefix labels to namespace IRIs.
 #' @param base_iri Optional base IRI for resolving relative references.
 #' @return Character vector of expanded IRIs.
+#'
+#' @examples
+#' prefixes <- c(ex = "http://example.com/")
+#' expand_iri(c("ex:Person", "name", "http://other.com/id/1"),
+#'            prefixes = prefixes, base_iri = "http://example.com/")
 #' @export
 expand_iri <- function(iri, prefixes = character(), base_iri = NULL) {
   prefixes_clean <- strip_angle_brackets(prefixes)
@@ -123,6 +135,11 @@ expand_iri <- function(iri, prefixes = character(), base_iri = NULL) {
 #' @param prefixes Named character vector mapping prefix labels to namespace IRIs.
 #' @param base_iri Optional base IRI used for relative resolution.
 #' @return Character vector of contracted CURIEs when possible.
+#'
+#' @examples
+#' prefixes <- c(ex = "http://example.com/")
+#' contract_iri(c("http://example.com/Person", "http://other.com/id/1"),
+#'              prefixes = prefixes, base_iri = "http://example.com/")
 #' @export
 contract_iri <- function(iri, prefixes = character(), base_iri = NULL) {
   cleaned <- strip_angle_brackets(iri)
@@ -154,6 +171,11 @@ contract_iri <- function(iri, prefixes = character(), base_iri = NULL) {
 #' @param prefer_curie Logical; if `TRUE`, attempt to contract to CURIEs after
 #'   expansion.
 #' @return Character vector of normalised IRIs or CURIEs.
+#'
+#' @examples
+#' prefixes <- c(ex = "http://example.com/")
+#' normalise_iri(c("ex:Person", "name"), prefixes = prefixes,
+#'               base_iri = "http://example.com/", prefer_curie = TRUE)
 #' @export
 normalise_iri <- function(iri, prefixes = character(), base_iri = NULL, prefer_curie = FALSE) {
   expanded <- expand_iri(iri, prefixes, base_iri)

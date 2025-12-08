@@ -13,6 +13,20 @@
 #'
 #' @return A `tidygraph::tbl_graph` object, returned invisibly. The associated
 #'   `visNetwork` widget is printed as a side effect.
+#'
+#' @examples
+#' \dontrun{
+#' shapes <- data.frame(
+#'   id = "ex:PersonShape",
+#'   property = I(list(list(
+#'     path = "ex:name",
+#'     constraints = list(list(component = "sh:datatype", datatype = "xsd:string"))
+#'   ))),
+#'   stringsAsFactors = FALSE
+#' )
+#'
+#' plot_property_column(shapes)
+#' }
 #' @export
 plot_property_column <- function(shapes, shape_id = NULL) {
 
