@@ -199,8 +199,26 @@ plot_shacl_tidy <- function(shapes, layout = "sugiyama", engine = c("ggraph", "v
       stop("The `visNetwork` package is required for `engine = 'visNetwork'`.", call. = FALSE)
     }
 
+    summarise_prop_details <- function(df) {
+      summarise_field <- function(x) {
+        unique_vals <- unique(stats::na.omit(x))
+
+        if (!length(unique_vals)) {
+          return(NA_character_)
+        }
+
+        paste(unique_vals, collapse = ", ")
+      }
+
+      df |>
+        dplyr::group_by(node) |>
+        dplyr::summarise(dplyr::across(dplyr::everything(), summarise_field), .groups = "drop")
+    }
+
     prop_details <- if (length(prop_detail_rows)) {
-      dplyr::bind_rows(prop_detail_rows)
+      prop_detail_rows |>
+        dplyr::bind_rows() |>
+        summarise_prop_details()
     } else {
       tibble::tibble()
     }
