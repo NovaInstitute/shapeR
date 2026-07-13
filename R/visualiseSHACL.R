@@ -36,7 +36,7 @@
 #' )
 #' visualiseSHACL(
 #'   read_shacl(
-#'     system.file("extdata", "visualise-shacl.ttl", package = "shapeR"),
+#'     system.file("extdata", "visualise-shacl.ttl", package = "shaclR"),
 #'     base_iri = "http://example.com/base#",
 #'     prefixes = prefixes,
 #'     normalise_iris = TRUE

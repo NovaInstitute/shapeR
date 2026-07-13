@@ -2,7 +2,7 @@ test_that("visualiseSHACL labels nested shapes and prefixes", {
   skip_if_not_installed("ggraph")
   skip_if_not_installed("tidygraph")
 
-  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shapeR")
+  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shaclR")
   expect_true(nzchar(ttl))
 
   base_iri <- "http://example.com/base#"
@@ -50,7 +50,7 @@ test_that("visualiseSHACL can output via visNetwork", {
   skip_if_not_installed("tidygraph")
   skip_if_not_installed("visNetwork")
 
-  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shapeR")
+  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shaclR")
   sg <- read_shacl(ttl)
 
   expect_s3_class(visualiseSHACL(sg, engine = "visNetwork"), "tbl_graph")

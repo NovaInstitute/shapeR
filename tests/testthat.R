@@ -1,4 +1,4 @@
 library(testthat)
-library(shapeR)
+library(shaclR)
 
-test_check("shapeR")
+test_check("shaclR")

@@ -1,4 +1,4 @@
-Package: shapeR
+Package: shaclR
 Type: Package
 Title: SHACL Utilities for R
 Version: 0.0.0.9000
@@ -21,3 +21,4 @@ Suggests:
     testthat (>= 3.0.0),
     visNetwork
 Config/testthat/edition: 3
+RoxygenNote: 7.3.2

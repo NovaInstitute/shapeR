@@ -2,7 +2,7 @@ test_that("plot_property_column renders visNetwork graph", {
   skip_if_not_installed("tidygraph")
   skip_if_not_installed("visNetwork")
 
-  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shapeR")
+  ttl <- system.file("extdata", "visualise-shacl.ttl", package = "shaclR")
   tidy_shapes <- read_shacl_tidy(ttl)
 
   expect_s3_class(plot_property_column(tidy_shapes), "tbl_graph")

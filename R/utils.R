@@ -1,4 +1,4 @@
-#' General utilities for shapeR.
+#' General utilities for shaclR.
 #' These helpers support argument validation and small internal conveniences
 #' used throughout the package.
 

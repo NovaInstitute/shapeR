@@ -1,5 +1,5 @@
 test_that("expand_rdf_list walks rdf:first/rest chain", {
-  const <- shapeR:::rdf_list_constants()
+  const <- shaclR:::rdf_list_constants()
 
   triples <- data.frame(
     subject   = c("_:head", "_:head", "_:b1", "_:b1"),
@@ -9,13 +9,13 @@ test_that("expand_rdf_list walks rdf:first/rest chain", {
   )
 
   expect_equal(
-    shapeR::expand_rdf_list("_:head", triples),
+    shaclR::expand_rdf_list("_:head", triples),
     c("<http://example.com/A>", "<http://example.com/B>")
   )
 })
 
 test_that("expand_rdf_list handles rdf:nil and non-lists", {
-  const <- shapeR:::rdf_list_constants()
+  const <- shaclR:::rdf_list_constants()
   triples <- data.frame(
     subject   = character(),
     predicate = character(),
@@ -23,6 +23,6 @@ test_that("expand_rdf_list handles rdf:nil and non-lists", {
     stringsAsFactors = FALSE
   )
 
-  expect_equal(shapeR::expand_rdf_list(const$nil, triples), character())
-  expect_equal(shapeR::expand_rdf_list("<http://example.com/not-a-list>", triples), "<http://example.com/not-a-list>")
+  expect_equal(shaclR::expand_rdf_list(const$nil, triples), character())
+  expect_equal(shaclR::expand_rdf_list("<http://example.com/not-a-list>", triples), "<http://example.com/not-a-list>")
 })

@@ -19,7 +19,7 @@
 #' @examples
 #' \dontrun{
 #' shapes <- read_shacl(system.file("extdata", "visualise-shacl.ttl",
-#'                                 package = "shapeR"))
+#'                                 package = "shaclR"))
 #'
 #' data <- data.frame(
 #'   subject = "<http://example.com/res1>",
@@ -264,11 +264,11 @@ validate_property_constraint <- function(constraint, values, datatypes,
 
 validate_min_count <- function(constraint, values, datatypes, focus_node, path,
                                shape_id, severity, triples, ...) {
-  min_count <- constraint$params$minCount %||% 0L
+  min_count <- as.integer(gsub("[<>]", "", constraint$params$minCount %||% "0"))
   n <- length(values)
 
   if (n < min_count) {
-    msg <- sprintf("Expected at least %s value(s) for path %s, found %s.",
+    msg <- sprintf("Expected at least <%s> value(s) for path %s, found %s.",
                    min_count, path, n)
     return(list(new_result(focus_node, shape_id, path, constraint$component,
                            msg, severity, NA_character_, constraint$scope)))
@@ -279,11 +279,12 @@ validate_min_count <- function(constraint, values, datatypes, focus_node, path,
 
 validate_max_count <- function(constraint, values, datatypes, focus_node, path,
                                shape_id, severity, triples, ...) {
-  max_count <- constraint$params$maxCount %||% Inf
+  max_count_raw <- constraint$params$maxCount %||% NA_character_
+  max_count <- if (is.na(max_count_raw)) Inf else as.integer(gsub("[<>]", "", max_count_raw))
   n <- length(values)
 
   if (n > max_count) {
-    msg <- sprintf("Expected at most %s value(s) for path %s, found %s.",
+    msg <- sprintf("Expected at most <%s> value(s) for path %s, found %s.",
                    max_count, path, n)
     return(list(new_result(focus_node, shape_id, path, constraint$component,
                            msg, severity, NA_character_, constraint$scope)))

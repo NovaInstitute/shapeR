@@ -1,6 +1,6 @@
-# shapeR
+# shaclR
 
-shapeR is an R package that offers utility functions for working with SHACL shapes graphs. It provides helpers for parsing SHACL definitions from RDF, manipulating SHACL model objects, and preparing them for downstream validation or visualisation workflows.
+shaclR is an R package that offers utility functions for working with SHACL shapes graphs. It provides helpers for parsing SHACL definitions from RDF, manipulating SHACL model objects, and preparing them for downstream validation or visualisation workflows.
 
 ## Features
 
@@ -29,7 +29,7 @@ devtools::load_all()
 Parsing a SHACL shapes graph from a Turtle file and inspecting the resulting object model:
 
 ```r
-library(shapeR)
+library(shaclR)
 
 # Read and parse a SHACL shapes graph
 shapes <- read_shacl("path/to/shapes.ttl", base_iri = "http://example.com/")
